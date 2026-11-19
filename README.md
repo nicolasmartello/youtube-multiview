@@ -17,6 +17,7 @@ Live: https://nicolasmartello.github.io/youtube-multiview/
 | --- | --- |
 | `1` / `2` / `3` | Unmute that video and mute the others. Press the same key again to mute all. |
 | `0` or `m` | Mute everything. |
+| `←` / `→` | Rewind / fast-forward the **selected** video by 10 seconds (`Shift` = 60 seconds). On live streams, rewinding needs DVR enabled and forward stops at the live edge. |
 | `Alt+L` (`Option+L` on Mac) | Open an input to paste a YouTube link and replace the **selected** video. `Enter` confirms, `Esc` cancels. |
 
 The selected video is the last one you clicked or the last number key you pressed (default: video 1). It is shown with a subtle white outline; the video with audio on gets a red outline.

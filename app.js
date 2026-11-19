@@ -1,4 +1,5 @@
 // Multiview: three muted YouTube players; keys 1/2/3 unmute one and mute the others.
+// Left/Right arrows seek the selected slot (Shift = longer jump).
 // Alt+L opens an input to replace the video in the selected slot (default: slot 1).
 const STORAGE_KEY = "multiview.videos";
 const players = [null, null, null];
@@ -72,6 +73,16 @@ function showEmptyHint(slot) {
   slotEl(slot).appendChild(hint);
 }
 
+// Seek the selected video by a number of seconds (negative = rewind).
+// On live streams, rewinding works while DVR is enabled; forward stops at the live edge.
+const SEEK_SHORT = 10;
+const SEEK_LONG = 60;
+function seekSelected(delta) {
+  const p = players[selectedSlot];
+  if (!p || !p.seekTo) return;
+  p.seekTo(Math.max(0, p.getCurrentTime() + delta), true);
+}
+
 // --- "Change video" dialog ---
 const dialog = document.createElement("div");
 dialog.id = "dialog";
@@ -124,6 +135,11 @@ document.addEventListener("keydown", (e) => {
   // Alt+L: use e.code because Alt changes e.key on macOS.
   if (e.altKey && e.code === "KeyL") { e.preventDefault(); if (apiReady) openDialog(); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    seekSelected((e.key === "ArrowRight" ? 1 : -1) * (e.shiftKey ? SEEK_LONG : SEEK_SHORT));
+    return;
+  }
   if (e.key === "1" || e.key === "2" || e.key === "3") {
     const slot = Number(e.key) - 1;
     setSelected(slot);
