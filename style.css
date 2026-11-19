@@ -48,3 +48,11 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .modal [hidden] { display: none !important; }
 .modal.link-mode .live-toggle { display: none; }
 .modal input.invalid { border-color: #f59e0b !important; }
+.search-form { flex-wrap: wrap; }
+.dest { flex-basis: 100%; display: flex; gap: 8px; align-items: center; color: #ccc; }
+.dest label { cursor: pointer; }
+.dest input { position: absolute; opacity: 0; pointer-events: none; }
+.dest label span { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #2a2a2a; color: #ccc; }
+.dest input:checked + span { background: #e11d48; color: #fff; }
+.dest input:focus-visible + span { outline: 2px solid #fff; }
+.modal.link-mode .dest { display: none; }

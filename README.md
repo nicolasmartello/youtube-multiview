@@ -20,7 +20,7 @@ Live: https://nicolasmartello.github.io/youtube-multiview/
 | `0` or `m` | Mute everything. |
 | `←` / `→` | Rewind / fast-forward the **selected** video by 10 seconds (`Shift` = 60 seconds). On live streams, rewinding needs DVR enabled and forward stops at the live edge. |
 | `Alt+L` (`Option+L` on Mac) | Open a simple input, paste a YouTube link and press `Enter` to load it into the **selected** video. `Esc` cancels. |
-| `Alt+S` (`Option+S` on Mac) | Advanced: open the YouTube search modal. Type and press `Enter`, use `↑`/`↓` to move through the results, `Enter` to pick one. Needs an API key (see below). |
+| `Alt+S` (`Option+S` on Mac) | Advanced: open the YouTube search modal. Choose which video the result loads into (defaults to the selected one), type and press `Enter`, use `↑`/`↓` to move through the results, `Enter` to pick one. Needs an API key (see below). |
 
 The selected video is the last one you clicked or the last number key you pressed (default: video 1). It is shown with a subtle white outline; the video with audio on gets a red outline.
 

@@ -96,6 +96,12 @@ dialog.innerHTML = `
     <form class="search-form">
       <input class="query" type="text" placeholder="Search YouTube or paste a link" autocomplete="off">
       <label class="live-toggle"><input type="checkbox" class="live-only"> Live only</label>
+      <div class="dest" role="radiogroup" aria-label="Destination video">
+        <span>Load into:</span>
+        <label><input type="radio" name="dest" value="0"><span>Video 1</span></label>
+        <label><input type="radio" name="dest" value="1"><span>Video 2</span></label>
+        <label><input type="radio" name="dest" value="2"><span>Video 3</span></label>
+      </div>
     </form>
     <form class="key-form" hidden>
       <p>Searching needs a free YouTube Data API key (see README). It is stored only in this browser.</p>
@@ -119,7 +125,9 @@ function decodeHtml(s) { return new DOMParser().parseFromString(s, "text/html").
 function openDialog(newMode) {
   mode = newMode;
   dialog.querySelector(".modal").classList.toggle("link-mode", mode === "link");
-  $(".modal-title").textContent = `Load into video ${selectedSlot + 1}`;
+  $(".modal-title").textContent = mode === "link" ? `Load into video ${selectedSlot + 1}` : "Search YouTube";
+  // Destination defaults to the currently selected video.
+  dialog.querySelector(`input[name="dest"][value="${selectedSlot}"]`).checked = true;
   queryInput.placeholder = mode === "link" ? "Paste a YouTube link" : "Search YouTube or paste a link";
   queryInput.classList.remove("invalid");
   queryInput.value = "";
@@ -143,10 +151,19 @@ function closeDialog() {
   document.activeElement && document.activeElement.blur();
 }
 
-// Loads a video into the selected slot and remembers it.
+// Slot the chosen video lands in: the picked destination in search mode, otherwise the selected slot.
+function targetSlot() {
+  if (mode !== "search") return selectedSlot;
+  const checked = dialog.querySelector('input[name="dest"]:checked');
+  return checked ? Number(checked.value) : selectedSlot;
+}
+
+// Loads a video into the target slot and remembers it.
 function chooseVideo(id) {
-  saveVideo(selectedSlot, `https://www.youtube.com/watch?v=${id}`);
-  showVideo(selectedSlot, id);
+  const slot = targetSlot();
+  saveVideo(slot, `https://www.youtube.com/watch?v=${id}`);
+  showVideo(slot, id);
+  setSelected(slot);
   closeDialog();
 }
 
