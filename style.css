@@ -46,3 +46,5 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .results .channel { color: #aaa; font-size: 13px; }
 .live-badge { align-self: flex-start; background: #e11d48; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
 .modal [hidden] { display: none !important; }
+.modal.link-mode .live-toggle { display: none; }
+.modal input.invalid { border-color: #f59e0b !important; }

@@ -1,6 +1,7 @@
 // Multiview: three muted YouTube players; keys 1/2/3 unmute one and mute the others.
 // Left/Right arrows seek the selected slot (Shift = longer jump).
-// Alt+L opens a YouTube search modal; the chosen result replaces the video in the selected slot (default: slot 1).
+// Alt+L opens a simple input to paste a YouTube link; Alt+S opens the (advanced) YouTube search.
+// Either way the video replaces the one in the selected slot (default: slot 1).
 const STORAGE_KEY = "multiview.videos";
 const players = [null, null, null];
 let activeSlot = -1;   // slot with audio on (-1 = everything muted)
@@ -69,7 +70,7 @@ function showVideo(slot, id) {
 function showEmptyHint(slot) {
   const hint = document.createElement("div");
   hint.className = "empty-hint";
-  hint.textContent = "Empty - press Alt+L to search for a video";
+  hint.textContent = "Empty - press Alt+L to paste a video link";
   slotEl(slot).appendChild(hint);
 }
 
@@ -107,6 +108,7 @@ dialog.innerHTML = `
   </div>`;
 document.body.appendChild(dialog);
 const $ = (sel) => dialog.querySelector(sel);
+let mode = "link"; // "link" = paste a URL only, "search" = full YouTube search
 const queryInput = $(".query"), liveOnly = $(".live-only"), statusEl = $(".status"), resultsEl = $(".results");
 const keyForm = $(".key-form"), searchForm = $(".search-form"), resetKeyBtn = $(".reset-key");
 
@@ -114,8 +116,12 @@ function getKey() { try { return localStorage.getItem(KEY_STORAGE) || ""; } catc
 
 function decodeHtml(s) { return new DOMParser().parseFromString(s, "text/html").documentElement.textContent; }
 
-function openDialog() {
+function openDialog(newMode) {
+  mode = newMode;
+  dialog.querySelector(".modal").classList.toggle("link-mode", mode === "link");
   $(".modal-title").textContent = `Load into video ${selectedSlot + 1}`;
+  queryInput.placeholder = mode === "link" ? "Paste a YouTube link" : "Search YouTube or paste a link";
+  queryInput.classList.remove("invalid");
   queryInput.value = "";
   resultsEl.textContent = "";
   statusEl.textContent = "";
@@ -124,11 +130,12 @@ function openDialog() {
 }
 
 function refreshKeyUi() {
-  const hasKey = !!getKey();
-  keyForm.hidden = hasKey;
-  searchForm.hidden = !hasKey;
-  resetKeyBtn.hidden = !hasKey;
-  (hasKey ? queryInput : $(".key")).focus();
+  // Link mode never needs the API key.
+  const needsKey = mode === "search" && !getKey();
+  keyForm.hidden = !needsKey;
+  searchForm.hidden = needsKey;
+  resetKeyBtn.hidden = mode !== "search" || needsKey;
+  (needsKey ? $(".key") : queryInput).focus();
 }
 
 function closeDialog() {
@@ -197,6 +204,12 @@ searchForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const q = queryInput.value.trim();
   if (!q) return;
+  if (mode === "link") {
+    const linkId = parseVideoId(q);
+    if (!linkId) { queryInput.classList.add("invalid"); return; }
+    chooseVideo(linkId);
+    return;
+  }
   const id = /youtu/.test(q) ? parseVideoId(q) : null; // a pasted YouTube link loads directly
   if (id) chooseVideo(id); else search(q);
 });
@@ -217,6 +230,7 @@ resetKeyBtn.addEventListener("click", () => {
   refreshKeyUi();
 });
 
+queryInput.addEventListener("input", () => queryInput.classList.remove("invalid"));
 $(".close").addEventListener("click", closeDialog);
 dialog.addEventListener("mousedown", (e) => { if (e.target === dialog) closeDialog(); }); // click on backdrop
 
@@ -249,7 +263,8 @@ document.addEventListener("keydown", (e) => {
     return; // let typing go to the input
   }
   // Alt+L: use e.code because Alt changes e.key on macOS.
-  if (e.altKey && e.code === "KeyL") { e.preventDefault(); if (apiReady) openDialog(); return; }
+  if (e.altKey && e.code === "KeyL") { e.preventDefault(); if (apiReady) openDialog("link"); return; }
+  if (e.altKey && e.code === "KeyS") { e.preventDefault(); if (apiReady) openDialog("search"); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
     e.preventDefault();
