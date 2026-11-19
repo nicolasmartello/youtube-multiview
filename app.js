@@ -1,6 +1,6 @@
 // Multiview: three muted YouTube players; keys 1/2/3 unmute one and mute the others.
 // Left/Right arrows seek the selected slot (Shift = longer jump).
-// Alt+L opens an input to replace the video in the selected slot (default: slot 1).
+// Alt+L opens a YouTube search modal; the chosen result replaces the video in the selected slot (default: slot 1).
 const STORAGE_KEY = "multiview.videos";
 const players = [null, null, null];
 let activeSlot = -1;   // slot with audio on (-1 = everything muted)
@@ -69,7 +69,7 @@ function showVideo(slot, id) {
 function showEmptyHint(slot) {
   const hint = document.createElement("div");
   hint.className = "empty-hint";
-  hint.textContent = "Empty - press Alt+L to set a video";
+  hint.textContent = "Empty - press Alt+L to search for a video";
   slotEl(slot).appendChild(hint);
 }
 
@@ -83,37 +83,153 @@ function seekSelected(delta) {
   p.seekTo(Math.max(0, p.getCurrentTime() + delta), true);
 }
 
-// --- "Change video" dialog ---
+// --- Search modal ---
+// Uses the YouTube Data API v3 (search.list). The API key is entered once and kept only in localStorage.
+const KEY_STORAGE = "multiview.apiKey";
 const dialog = document.createElement("div");
 dialog.id = "dialog";
 dialog.hidden = true;
-dialog.innerHTML = `<form><label></label><input type="text" placeholder="Paste a YouTube link" autocomplete="off"></form>`;
+dialog.innerHTML = `
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head"><span class="modal-title"></span><button type="button" class="close" aria-label="Close">&times;</button></div>
+    <form class="search-form">
+      <input class="query" type="text" placeholder="Search YouTube or paste a link" autocomplete="off">
+      <label class="live-toggle"><input type="checkbox" class="live-only"> Live only</label>
+    </form>
+    <form class="key-form" hidden>
+      <p>Searching needs a free YouTube Data API key (see README). It is stored only in this browser.</p>
+      <input class="key" type="password" placeholder="Paste API key" autocomplete="off">
+      <button type="submit">Save key</button>
+    </form>
+    <p class="status"></p>
+    <ul class="results"></ul>
+    <button type="button" class="reset-key" hidden>Change API key</button>
+  </div>`;
 document.body.appendChild(dialog);
-const dialogInput = dialog.querySelector("input");
-const dialogLabel = dialog.querySelector("label");
+const $ = (sel) => dialog.querySelector(sel);
+const queryInput = $(".query"), liveOnly = $(".live-only"), statusEl = $(".status"), resultsEl = $(".results");
+const keyForm = $(".key-form"), searchForm = $(".search-form"), resetKeyBtn = $(".reset-key");
+
+function getKey() { try { return localStorage.getItem(KEY_STORAGE) || ""; } catch (_) { return ""; } }
+
+function decodeHtml(s) { return new DOMParser().parseFromString(s, "text/html").documentElement.textContent; }
 
 function openDialog() {
-  dialogLabel.textContent = `Replace video ${selectedSlot + 1}`;
-  dialogInput.value = "";
+  $(".modal-title").textContent = `Load into video ${selectedSlot + 1}`;
+  queryInput.value = "";
+  resultsEl.textContent = "";
+  statusEl.textContent = "";
   dialog.hidden = false;
-  dialogInput.focus();
+  refreshKeyUi();
+}
+
+function refreshKeyUi() {
+  const hasKey = !!getKey();
+  keyForm.hidden = hasKey;
+  searchForm.hidden = !hasKey;
+  resetKeyBtn.hidden = !hasKey;
+  (hasKey ? queryInput : $(".key")).focus();
 }
 
 function closeDialog() {
   dialog.hidden = true;
-  dialogInput.blur();
+  document.activeElement && document.activeElement.blur();
 }
 
-dialog.querySelector("form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const raw = dialogInput.value.trim();
-  const id = parseVideoId(raw);
-  if (!id) { dialogInput.classList.add("invalid"); return; }
-  saveVideo(selectedSlot, raw);
+// Loads a video into the selected slot and remembers it.
+function chooseVideo(id) {
+  saveVideo(selectedSlot, `https://www.youtube.com/watch?v=${id}`);
   showVideo(selectedSlot, id);
   closeDialog();
+}
+
+function renderResults(items) {
+  resultsEl.textContent = "";
+  if (!items.length) { statusEl.textContent = "No embeddable results."; return; }
+  statusEl.textContent = "";
+  items.forEach((it) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const img = document.createElement("img");
+    img.src = it.snippet.thumbnails.medium.url;
+    img.alt = "";
+    const info = document.createElement("span");
+    info.className = "info";
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = decodeHtml(it.snippet.title);
+    const chan = document.createElement("span");
+    chan.className = "channel";
+    chan.textContent = decodeHtml(it.snippet.channelTitle);
+    info.append(title, chan);
+    if (it.snippet.liveBroadcastContent === "live") {
+      const live = document.createElement("span");
+      live.className = "live-badge";
+      live.textContent = "LIVE";
+      info.append(live);
+    }
+    btn.append(img, info);
+    btn.addEventListener("click", () => chooseVideo(it.id.videoId));
+    li.appendChild(btn);
+    resultsEl.appendChild(li);
+  });
+}
+
+async function search(q) {
+  statusEl.textContent = "Searching...";
+  resultsEl.textContent = "";
+  const params = new URLSearchParams({
+    part: "snippet", type: "video", videoEmbeddable: "true", maxResults: "12", q, key: getKey(),
+  });
+  if (liveOnly.checked) params.set("eventType", "live");
+  try {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error && data.error.message ? data.error.message : `HTTP ${res.status}`);
+    renderResults(data.items || []);
+  } catch (err) {
+    statusEl.textContent = `Search failed: ${decodeHtml(String(err.message))}`;
+  }
+}
+
+searchForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = queryInput.value.trim();
+  if (!q) return;
+  const id = /youtu/.test(q) ? parseVideoId(q) : null; // a pasted YouTube link loads directly
+  if (id) chooseVideo(id); else search(q);
 });
-dialogInput.addEventListener("input", () => dialogInput.classList.remove("invalid"));
+
+keyForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const k = $(".key").value.trim();
+  if (!k) return;
+  try { localStorage.setItem(KEY_STORAGE, k); } catch (_) { /* storage unavailable */ }
+  $(".key").value = "";
+  refreshKeyUi();
+});
+
+resetKeyBtn.addEventListener("click", () => {
+  try { localStorage.removeItem(KEY_STORAGE); } catch (_) { /* ignore */ }
+  resultsEl.textContent = "";
+  statusEl.textContent = "";
+  refreshKeyUi();
+});
+
+$(".close").addEventListener("click", closeDialog);
+dialog.addEventListener("mousedown", (e) => { if (e.target === dialog) closeDialog(); }); // click on backdrop
+
+// Arrow keys move focus through the results.
+dialog.addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const btns = [...resultsEl.querySelectorAll("button")];
+  if (!btns.length) return;
+  e.preventDefault();
+  const i = btns.indexOf(document.activeElement);
+  const next = e.key === "ArrowDown" ? Math.min(i + 1, btns.length - 1) : i - 1;
+  (next < 0 ? queryInput : btns[next]).focus();
+});
 
 // Clicking a slot selects it (audio is unchanged).
 document.querySelectorAll(".slot").forEach((el, i) => el.addEventListener("click", () => setSelected(i)));
