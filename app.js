@@ -125,10 +125,10 @@ function decodeHtml(s) { return new DOMParser().parseFromString(s, "text/html").
 function openDialog(newMode) {
   mode = newMode;
   dialog.querySelector(".modal").classList.toggle("link-mode", mode === "link");
-  $(".modal-title").textContent = mode === "link" ? `Load into video ${selectedSlot + 1}` : "Search YouTube";
+  $(".modal-title").textContent = mode === "link" ? "Paste a YouTube link" : "Search YouTube";
   // Destination defaults to the currently selected video.
   dialog.querySelector(`input[name="dest"][value="${selectedSlot}"]`).checked = true;
-  queryInput.placeholder = mode === "link" ? "Paste a YouTube link" : "Search YouTube or paste a link";
+  queryInput.placeholder = mode === "link" ? "https://www.youtube.com/watch?v=..." : "Search YouTube or paste a link";
   queryInput.classList.remove("invalid");
   queryInput.value = "";
   resultsEl.textContent = "";
@@ -151,9 +151,8 @@ function closeDialog() {
   document.activeElement && document.activeElement.blur();
 }
 
-// Slot the chosen video lands in: the picked destination in search mode, otherwise the selected slot.
+// Slot the chosen video lands in: the destination picked in the modal (defaults to the selected slot).
 function targetSlot() {
-  if (mode !== "search") return selectedSlot;
   const checked = dialog.querySelector('input[name="dest"]:checked');
   return checked ? Number(checked.value) : selectedSlot;
 }
